@@ -18,6 +18,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "airplay-core"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "pkg-config",
+]
+
+[[package]]
+name = "airplay-render"
+version = "0.1.0"
+dependencies = [
+ "airplay-core",
+]
+
+[[package]]
 name = "alloc-no-stdlib"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
