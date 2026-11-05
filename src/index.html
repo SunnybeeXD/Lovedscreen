@@ -8,12 +8,21 @@
 </head>
 <body>
 <main>
-  <h1>Lovedscreen</h1>
-  <label>Device name <input id="name" value="Lovedscreen"></label>
-  <button id="toggle">Start receiver</button>
-  <p id="state">Stopped</p>
-  <p class="hint">On your iPhone: Control Center, Screen Mirroring, pick this name. Both devices must be on the same Wi-Fi, and Windows must see that network as Private. F11 toggles fullscreen.</p>
-  <pre id="log"></pre>
+  <header>
+    <h1>Lovedscreen</h1>
+    <span id="pill" class="pill"><i></i><b id="state">Stopped</b></span>
+  </header>
+  <label class="field">
+    <span>Device name</span>
+    <input id="name" value="Lovedscreen" spellcheck="false">
+  </label>
+  <button id="toggle" class="primary">Start receiver</button>
+  <ol class="steps">
+    <li>Same Wi-Fi as your iPhone, set to Private in Windows</li>
+    <li>Control Center, Screen Mirroring, pick the name above</li>
+    <li>Press F11 in the mirror window for fullscreen</li>
+  </ol>
+  <pre id="log" aria-label="Receiver log"></pre>
 </main>
 <script src="main.js"></script>
 </body>

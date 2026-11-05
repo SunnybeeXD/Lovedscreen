@@ -1,6 +1,44 @@
-:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-body { margin: 0; padding: 16px; }
-main { display: flex; flex-direction: column; gap: 12px; }
-h1 { margin: 0; font-size: 20px; }
-pre { margin: 0; height: 140px; overflow: auto; font-size: 11px; background: rgba(128,128,128,.15); padding: 8px; }
-.hint { margin: 0; font-size: 12px; opacity: .7; }
+:root {
+  color-scheme: light dark;
+  --bg: #f5f5f7;
+  --card: #ffffff;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --line: #d2d2d7;
+  --accent: #0a84ff;
+  --accent-text: #ffffff;
+  --ok: #30d158;
+  --err: #ff453a;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e;
+    --card: #2c2c2e;
+    --text: #f5f5f7;
+    --muted: #98989d;
+    --line: #3a3a3c;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+main { display: flex; flex-direction: column; gap: 14px; padding: 20px; height: 100vh; }
+header { display: flex; align-items: center; justify-content: space-between; }
+h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 12px; }
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pill b { font-weight: 500; }
+.pill.running i { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 30%, transparent); }
+.pill.error i { background: var(--err); }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
+input { font: inherit; font-size: 14px; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; outline: none; }
+input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+input:disabled { opacity: .6; }
+button.primary { font: inherit; font-weight: 600; font-size: 14px; color: var(--accent-text); background: var(--accent); border: 0; border-radius: 8px; padding: 10px; cursor: pointer; transition: filter .15s, transform .05s; }
+button.primary:hover { filter: brightness(1.1); }
+button.primary:active { transform: scale(.99); }
+button.primary:disabled { opacity: .5; cursor: default; }
+button.primary.stop { background: var(--err); }
+.steps { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--muted); }
+pre { flex: 1; min-height: 0; margin: 0; overflow: auto; font: 11px/1.5 ui-monospace, Consolas, monospace; color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; white-space: pre-wrap; }
+pre:empty::before { content: "Receiver output appears here"; opacity: .6; }
