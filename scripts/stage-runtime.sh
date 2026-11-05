@@ -7,7 +7,19 @@ out="$root/stage/runtime"
 
 rm -rf "$out"
 mkdir -p "$out/gstreamer-1.0"
-cp "$prefix"/lib/gstreamer-1.0/*.dll "$out/gstreamer-1.0/"
+
+required=(coreelements app audioconvert audioresample libav playback videoparsersbad videoconvertscale typefindfunctions d3d11 autodetect)
+optional=(directsound wasapi2 videoscale videoconvert)
+
+for name in "${required[@]}"; do
+  f="$prefix/lib/gstreamer-1.0/libgst${name}.dll"
+  [ -f "$f" ] || { echo "missing required plugin $name" >&2; exit 1; }
+  cp "$f" "$out/gstreamer-1.0/"
+done
+for name in "${optional[@]}"; do
+  f="$prefix/lib/gstreamer-1.0/libgst${name}.dll"
+  [ -f "$f" ] && cp "$f" "$out/gstreamer-1.0/"
+done
 
 seeds=()
 for pattern in libgstreamer-1.0 libgstbase-1.0 libgstapp-1.0 libgstvideo-1.0 libgstaudio-1.0 libplist-2.0 libssl libcrypto libwinpthread libgcc_s libstdc++; do

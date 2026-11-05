@@ -40,4 +40,8 @@ listen("receiver-line", (e) => {
   log.scrollTop = log.scrollHeight;
 });
 
+listen("receiver-connection", (e) => {
+  if (running) setState(e.payload ? "Mirroring" : "Running", "running");
+});
+
 listen("receiver-exit", () => setRunning(false));

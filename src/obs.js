@@ -53,7 +53,7 @@ async function setupInput(obs, scene, name, kind, extra) {
     inputName: name,
     propertyName: "window",
   });
-  const item = propertyItems.find((i) => /uxplay\.exe/i.test(i.itemName));
+  const item = propertyItems.find((i) => /^\[lovedscreen\.exe\]:/i.test(i.itemName) && !/^\[lovedscreen\.exe\]:\s*Lovedscreen\s*$/i.test(i.itemName));
   if (!item) throw new Error("Mirror window not found. Start mirroring from your iPhone first.");
   await obs.request("SetInputSettings", { inputName: name, inputSettings: { window: item.itemValue, ...extra } });
 }

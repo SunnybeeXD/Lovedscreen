@@ -1,91 +1,77 @@
-use std::io::{BufRead, BufReader};
-use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use airplay_core::{AudioCodec, MediaSink, Server};
+use airplay_render::GstSink;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Default)]
-struct Receiver(Mutex<Option<Child>>);
+struct Receiver(Mutex<Option<Server>>);
 
-fn receiver_command(app: &AppHandle) -> Command {
-    let bundled = app
-        .path()
-        .resource_dir()
-        .ok()
-        .map(|d| d.join("uxplay"))
-        .filter(|d| d.join("uxplay.exe").exists());
-    let mut cmd = match bundled {
-        Some(dir) => {
-            let plugins = dir.join("gstreamer-1.0");
-            let mut c = Command::new(dir.join("uxplay.exe"));
-            c.env("GST_PLUGIN_PATH_1_0", &plugins)
-                .env("GST_PLUGIN_SYSTEM_PATH_1_0", &plugins)
-                .env(
-                    "GST_REGISTRY_1_0",
-                    std::env::temp_dir().join("lovedscreen-gst-registry.bin"),
-                );
-            c
-        }
-        None => Command::new(std::env::var("UXPLAY_PATH").unwrap_or_else(|_| "uxplay".into())),
-    };
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000);
-    }
-    cmd
+struct UiSink {
+    app: AppHandle,
+    inner: GstSink,
 }
 
-fn pipe_lines<R: std::io::Read + Send + 'static>(app: AppHandle, stream: R) {
-    std::thread::spawn(move || {
-        for line in BufReader::new(stream).lines().map_while(Result::ok) {
-            let _ = app.emit("receiver-line", line);
+impl MediaSink for UiSink {
+    fn video_codec(&self, width: u16, height: u16, h265: bool) {
+        self.inner.video_codec(width, height, h265);
+    }
+    fn video(&self, annexb: &[u8], pts_ns: u64) {
+        self.inner.video(annexb, pts_ns);
+    }
+    fn audio(&self, codec: AudioCodec, data: &[u8], pts_ns: u64) {
+        self.inner.audio(codec, data, pts_ns);
+    }
+    fn flush(&self) {
+        self.inner.flush();
+    }
+    fn connection(&self, open: bool) {
+        self.inner.connection(open);
+        let _ = self.app.emit("receiver-connection", open);
+    }
+    fn log(&self, _level: i32, msg: &str) {
+        let _ = self.app.emit("receiver-line", msg.to_string());
+    }
+}
+
+fn point_gstreamer_at_bundle(app: &AppHandle) {
+    if let Ok(dir) = app.path().resource_dir() {
+        let plugins = dir.join("gstreamer-1.0");
+        if plugins.is_dir() {
+            std::env::set_var("GST_PLUGIN_PATH_1_0", &plugins);
+            std::env::set_var("GST_PLUGIN_SYSTEM_PATH_1_0", &plugins);
+            std::env::set_var(
+                "GST_REGISTRY_1_0",
+                std::env::temp_dir().join("lovedscreen-gst-registry.bin"),
+            );
         }
-    });
+    }
 }
 
 #[tauri::command]
-fn start_receiver(app: AppHandle, state: State<Receiver>, name: String) -> Result<(), String> {
+async fn start_receiver(
+    app: AppHandle,
+    state: State<'_, Receiver>,
+    name: String,
+) -> Result<(), String> {
     let mut slot = state.0.lock().map_err(|e| e.to_string())?;
     if slot.is_some() {
         return Err("receiver already running".into());
     }
-    let mut child = receiver_command(&app)
-        .args(["-n", &name])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("could not start receiver: {e}"))?;
-    let out = child.stdout.take();
-    if let Some(err) = child.stderr.take() {
-        pipe_lines(app.clone(), err);
-    }
-    *slot = Some(child);
-    std::thread::spawn(move || {
-        if let Some(out) = out {
-            for line in BufReader::new(out).lines().map_while(Result::ok) {
-                let _ = app.emit("receiver-line", line);
-            }
-        }
-        let child = app
-            .state::<Receiver>()
-            .0
-            .lock()
-            .ok()
-            .and_then(|mut s| s.take());
-        if let Some(mut c) = child {
-            let _ = c.wait();
-        }
-        let _ = app.emit("receiver-exit", ());
+    point_gstreamer_at_bundle(&app);
+    let inner = GstSink::new()?;
+    let sink = Arc::new(UiSink {
+        app: app.clone(),
+        inner,
     });
+    *slot = Some(Server::start(&name, sink)?);
     Ok(())
 }
 
 #[tauri::command]
-fn stop_receiver(state: State<Receiver>) -> Result<(), String> {
-    let mut slot = state.0.lock().map_err(|e| e.to_string())?;
-    if let Some(child) = slot.as_mut() {
-        child.kill().map_err(|e| e.to_string())?;
-    }
+async fn stop_receiver(app: AppHandle, state: State<'_, Receiver>) -> Result<(), String> {
+    let server = state.0.lock().map_err(|e| e.to_string())?.take();
+    drop(server);
+    let _ = app.emit("receiver-exit", ());
     Ok(())
 }
 
