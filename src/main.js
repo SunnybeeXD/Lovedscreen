@@ -22,8 +22,6 @@ function setRunning(value) {
   $("toggle").textContent = running ? "Stop receiver" : "Start receiver";
   $("state").textContent = running ? "Running" : "Stopped";
   $("name").disabled = running;
-  $("record").disabled = running;
-  $("toggle").disabled = false;
 }
 
 $("recheck").addEventListener("click", checkGate);
@@ -31,11 +29,10 @@ $("recheck").addEventListener("click", checkGate);
 $("toggle").addEventListener("click", async () => {
   try {
     if (running) {
-      $("toggle").disabled = true;
-      $("state").textContent = "Stopping";
       await invoke("stop_receiver");
+      setRunning(false);
     } else {
-      await invoke("start_receiver", { name: $("name").value, record: $("record").checked });
+      await invoke("start_receiver", { name: $("name").value });
       setRunning(true);
     }
   } catch (e) {
@@ -49,9 +46,6 @@ listen("receiver-line", (e) => {
   log.scrollTop = log.scrollHeight;
 });
 
-listen("receiver-exit", (e) => {
-  setRunning(false);
-  if (e.payload) $("state").textContent = "Saved: " + e.payload;
-});
+listen("receiver-exit", () => setRunning(false));
 
 checkGate();
