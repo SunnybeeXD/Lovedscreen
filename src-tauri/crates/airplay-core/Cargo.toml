@@ -1,0 +1,9 @@
+[package]
+name = "airplay-core"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[build-dependencies]
+cc = "1"
+pkg-config = "0.3"

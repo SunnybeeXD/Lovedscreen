@@ -7,19 +7,32 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main id="gate" hidden>
-  <h1>Bonjour required</h1>
-  <p id="gate-msg"></p>
-  <p><a href="https://support.apple.com/kb/DL999" target="_blank">Get Bonjour from Apple</a></p>
-  <button id="recheck">Recheck</button>
-</main>
-<main id="app" hidden>
-  <h1>Lovedscreen</h1>
-  <label>Device name <input id="name" value="Lovedscreen"></label>
-  <button id="toggle">Start receiver</button>
-  <p id="state">Stopped</p>
-  <pre id="log"></pre>
+<main>
+  <header>
+    <h1>Lovedscreen</h1>
+    <span id="pill" class="pill"><i></i><b id="state">Stopped</b></span>
+  </header>
+  <label class="field">
+    <span>Device name</span>
+    <input id="name" value="Lovedscreen" spellcheck="false">
+  </label>
+  <button id="toggle" class="primary">Start receiver</button>
+  <ol class="steps">
+    <li>Same Wi-Fi as your iPhone, set to Private in Windows</li>
+    <li>Control Center, Screen Mirroring, pick the name above</li>
+    <li>Press F11 in the mirror window for fullscreen</li>
+  </ol>
+  <details class="obs">
+    <summary>Use in OBS</summary>
+    <p class="hint">Mirror your iPhone first, then press the button. Needs OBS 28 or newer with the WebSocket server enabled.</p>
+    <input id="obs-url" value="ws://127.0.0.1:4455" spellcheck="false">
+    <input id="obs-pass" type="password" placeholder="WebSocket password (if set)">
+    <button id="obs-add" class="primary">Add to OBS</button>
+    <p id="obs-msg" class="hint"></p>
+  </details>
+  <pre id="log" aria-label="Receiver log"></pre>
 </main>
 <script src="main.js"></script>
+<script src="obs.js"></script>
 </body>
 </html>
