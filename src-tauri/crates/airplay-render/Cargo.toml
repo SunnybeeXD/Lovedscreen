@@ -6,3 +6,5 @@ license = "GPL-3.0-only"
 
 [dependencies]
 airplay-core = { path = "../airplay-core" }
+gstreamer = "0.23"
+gstreamer-app = "0.23"
