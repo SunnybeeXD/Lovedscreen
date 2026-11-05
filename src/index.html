@@ -22,8 +22,17 @@
     <li>Control Center, Screen Mirroring, pick the name above</li>
     <li>Press F11 in the mirror window for fullscreen</li>
   </ol>
+  <details class="obs">
+    <summary>Use in OBS</summary>
+    <p class="hint">Mirror your iPhone first, then press the button. Needs OBS 28 or newer with the WebSocket server enabled.</p>
+    <input id="obs-url" value="ws://127.0.0.1:4455" spellcheck="false">
+    <input id="obs-pass" type="password" placeholder="WebSocket password (if set)">
+    <button id="obs-add" class="primary">Add to OBS</button>
+    <p id="obs-msg" class="hint"></p>
+  </details>
   <pre id="log" aria-label="Receiver log"></pre>
 </main>
 <script src="main.js"></script>
+<script src="obs.js"></script>
 </body>
 </html>
