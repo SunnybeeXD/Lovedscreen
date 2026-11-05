@@ -31,7 +31,7 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../stage/uxplay/": "uxplay/"
+      "../stage/runtime/": "./"
     },
     "windows": {
       "nsis": {
