@@ -8,9 +8,33 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-openssl
+            mingw-w64-ucrt-x86_64-libplist
+            mingw-w64-ucrt-x86_64-gstreamer
+            mingw-w64-ucrt-x86_64-gst-plugins-base
+            mingw-w64-ucrt-x86_64-gst-plugins-good
+            mingw-w64-ucrt-x86_64-gst-plugins-bad
+            mingw-w64-ucrt-x86_64-gst-libav
+      - name: Build and stage UxPlay
+        shell: msys2 {0}
+        run: scripts/stage-uxplay.sh
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
       - run: npx tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: src-tauri/target/release/bundle/nsis/*.exe
