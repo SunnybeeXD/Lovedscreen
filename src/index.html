@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lovedscreen</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="gate" hidden>
+  <h1>Bonjour required</h1>
+  <p id="gate-msg"></p>
+  <p><a href="https://support.apple.com/kb/DL999" target="_blank">Get Bonjour from Apple</a></p>
+  <button id="recheck">Recheck</button>
+</main>
+<main id="app" hidden>
+  <h1>Lovedscreen</h1>
+  <label>Device name <input id="name" value="Lovedscreen"></label>
+  <button id="toggle">Start receiver</button>
+  <p id="state">Stopped</p>
+  <pre id="log"></pre>
+</main>
+<script src="main.js"></script>
+</body>
+</html>
