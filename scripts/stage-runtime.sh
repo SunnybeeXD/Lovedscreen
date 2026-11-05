@@ -36,4 +36,5 @@ done | grep -i '\.dll$' | grep -vi '/lib/gstreamer-1.0/' | sort -u | while read 
   cp -n "$dll" "$out/"
 done
 
-ls "$out"/libgstreamer-1.0-*.dll "$out"/libplist-2.0-*.dll >/dev/null
+ls "$out"/libgstreamer-1.0*.dll "$out"/libplist-2.0*.dll
+ls "$out"/gstreamer-1.0
