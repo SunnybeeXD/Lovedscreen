@@ -114,6 +114,7 @@ extern "C" {
     fn raop_set_dnssd(r: *mut raop_t, d: *mut dnssd_t);
     fn raop_destroy(r: *mut raop_t);
     fn get_local_time() -> u64;
+    fn ntp_global_init();
 }
 
 const LOGGER_INFO: c_int = 6;
@@ -298,6 +299,8 @@ fn hw_addr(name: &str) -> [u8; 6] {
 
 impl Engine {
     pub fn start(name: &str, sink: Arc<dyn MediaSink>) -> Result<Engine, String> {
+        static NTP_INIT: std::sync::Once = std::sync::Once::new();
+        NTP_INIT.call_once(|| unsafe { ntp_global_init() });
         let cname = CString::new(name).map_err(|_| "name contains NUL".to_string())?;
         let keyfile = keyfile_path();
         prepare_keyfile(&keyfile)?;
