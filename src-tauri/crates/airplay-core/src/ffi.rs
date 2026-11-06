@@ -114,9 +114,11 @@ extern "C" {
     fn raop_set_dnssd(r: *mut raop_t, d: *mut dnssd_t);
     fn raop_destroy(r: *mut raop_t);
     fn get_local_time() -> u64;
+    fn ntp_global_init();
 }
 
 const LOGGER_INFO: c_int = 6;
+const LOGGER_DEBUG: c_int = 7;
 const RESET_TYPE_ON_VIDEO_PLAY: c_int = 4;
 const VIDEO_CODEC_H265: c_int = 2;
 
@@ -297,6 +299,8 @@ fn hw_addr(name: &str) -> [u8; 6] {
 
 impl Engine {
     pub fn start(name: &str, sink: Arc<dyn MediaSink>) -> Result<Engine, String> {
+        static NTP_INIT: std::sync::Once = std::sync::Once::new();
+        NTP_INIT.call_once(|| unsafe { ntp_global_init() });
         let cname = CString::new(name).map_err(|_| "name contains NUL".to_string())?;
         let keyfile = keyfile_path();
         prepare_keyfile(&keyfile)?;
@@ -364,7 +368,7 @@ impl Engine {
                 return Err("raop_init failed".into());
             }
             raop_set_log_callback(e.raop, log_cb, e.ctx as Cls);
-            raop_set_log_level(e.raop, LOGGER_INFO);
+            raop_set_log_level(e.raop, LOGGER_DEBUG);
             if raop_init2(e.raop, 0, cmac.as_ptr(), ckey.as_ptr()) != 0 {
                 free(e.raop as *mut c_void);
                 e.raop = ptr::null_mut();
