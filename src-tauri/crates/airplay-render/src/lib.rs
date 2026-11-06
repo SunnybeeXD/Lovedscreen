@@ -66,6 +66,14 @@ fn default_video_sink() -> &'static str {
     }
 }
 
+fn prefer_hardware_decoders() {
+    for name in ["d3d11h264dec", "d3d11h265dec"] {
+        if let Some(f) = gst::ElementFactory::find(name) {
+            f.set_rank(gst::Rank::PRIMARY + 1);
+        }
+    }
+}
+
 fn find_fullscreen_element(sink: &gst::Bin) -> Option<gst::Element> {
     sink.iterate_recurse()
         .into_iter()
@@ -92,6 +100,7 @@ impl GstSink {
 
     pub fn with_sinks(video: &str, audio: &str) -> Result<GstSink, String> {
         gst::init().map_err(|e| e.to_string())?;
+        prefer_hardware_decoders();
         Ok(GstSink {
             video_sink: video.to_string(),
             audio_sink: audio.to_string(),
@@ -170,11 +179,14 @@ impl GstSink {
         if let Some(p) = g.video.take() {
             p.stop();
         }
-        let (head, caps) = if g.h265 {
-            ("h265parse ! decodebin ! videoconvert name=tail", "video/x-h265,stream-format=byte-stream,alignment=au")
+        let convert = if self.video_sink.starts_with("d3d11") { "d3d11convert" } else { "videoconvert" };
+        let (parse, caps) = if g.h265 {
+            ("h265parse", "video/x-h265,stream-format=byte-stream,alignment=au")
         } else {
-            ("h264parse ! decodebin ! videoconvert name=tail", "video/x-h264,stream-format=byte-stream,alignment=au")
+            ("h264parse", "video/x-h264,stream-format=byte-stream,alignment=au")
         };
+        let head = format!("{parse} ! decodebin ! {convert} name=tail");
+        let head = head.as_str();
         g.video = Some(self.start(g, head, caps, &self.video_sink, true)?);
         Ok(())
     }

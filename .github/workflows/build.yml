@@ -37,6 +37,10 @@ jobs:
       - run: scripts/stage-runtime.sh
       - run: npm ci
       - run: npx tauri build
+      - run: |
+          ldd src-tauri/target/release/lovedscreen.exe
+          ! ldd src-tauri/target/release/lovedscreen.exe | grep -iE 'libplist|libcrypto|libssl'
+      - run: ls -l src-tauri/target/release/lovedscreen.exe src-tauri/target/release/bundle/nsis/*.exe
       - uses: actions/upload-artifact@v4
         with:
           name: installer

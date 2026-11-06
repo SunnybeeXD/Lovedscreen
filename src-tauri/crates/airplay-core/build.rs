@@ -57,12 +57,15 @@ fn main() {
         assert!(status.success(), "patch failed: {}", p.display());
     }
 
+    let windows = std::env::var("CARGO_CFG_WINDOWS").is_ok();
     let plist = pkg_config::Config::new()
         .atleast_version("2.0")
+        .statik(windows)
         .probe("libplist-2.0")
         .unwrap();
     let openssl = pkg_config::Config::new()
         .atleast_version("1.1.1")
+        .statik(windows)
         .probe("openssl")
         .unwrap();
 
@@ -72,13 +75,12 @@ fn main() {
     collect(&lib.join("llhttp"), &mut files);
     collect(&lib.join("mdnsd"), &mut files);
 
-    let windows = std::env::var("CARGO_CFG_WINDOWS").is_ok();
     let mut b = cc::Build::new();
     b.files(&files)
         .include(&lib)
         .include(lib.join("playfair"))
         .include(lib.join("llhttp"))
-        .opt_level(2)
+        .opt_level_str("s")
         .pic(true)
         .warnings(false)
         .define("STANDALONE", None)
