@@ -110,6 +110,7 @@ async fn start_receiver(
     app: AppHandle,
     state: State<'_, Receiver>,
     name: String,
+    fps: u8,
 ) -> Result<(), String> {
     let mut slot = state.0.lock().map_err(|e| e.to_string())?;
     if slot.is_some() {
@@ -131,7 +132,7 @@ async fn start_receiver(
         }
     }));
     sink.note(&format!("starting receiver name={name:?}, log file {}", log_file_path().display()));
-    let server = Server::start(&name, sink.clone())?;
+    let server = Server::start_with_fps(&name, sink.clone(), if fps >= 60 { 60 } else { 30 })?;
     sink.note(&format!("listening on port {}", server.port()));
     *slot = Some(server);
     Ok(())

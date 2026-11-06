@@ -112,6 +112,7 @@ extern "C" {
     fn raop_set_port(r: *mut raop_t, port: c_ushort);
     fn raop_start_httpd(r: *mut raop_t, port: *mut c_ushort) -> c_int;
     fn raop_set_dnssd(r: *mut raop_t, d: *mut dnssd_t);
+    fn raop_set_plist(r: *mut raop_t, item: *const c_char, value: c_int) -> c_int;
     fn raop_destroy(r: *mut raop_t);
     fn get_local_time() -> u64;
     fn ntp_global_init();
@@ -298,7 +299,7 @@ fn hw_addr(name: &str) -> [u8; 6] {
 }
 
 impl Engine {
-    pub fn start(name: &str, sink: Arc<dyn MediaSink>) -> Result<Engine, String> {
+    pub fn start(name: &str, sink: Arc<dyn MediaSink>, max_fps: u8) -> Result<Engine, String> {
         static NTP_INIT: std::sync::Once = std::sync::Once::new();
         NTP_INIT.call_once(|| unsafe { ntp_global_init() });
         let cname = CString::new(name).map_err(|_| "name contains NUL".to_string())?;
@@ -374,6 +375,8 @@ impl Engine {
                 e.raop = ptr::null_mut();
                 return Err("raop_init2 failed".into());
             }
+            let key = CString::new("maxFPS").unwrap();
+            raop_set_plist(e.raop, key.as_ptr(), max_fps as c_int);
             let mut tcp: [c_ushort; 3] = [0; 3];
             let mut udp: [c_ushort; 3] = [0; 3];
             raop_set_tcp_ports(e.raop, tcp.as_mut_ptr());

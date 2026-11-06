@@ -9,8 +9,12 @@ pub struct Server {
 
 impl Server {
     pub fn start(name: &str, sink: Arc<dyn MediaSink>) -> Result<Server, String> {
+        Server::start_with_fps(name, sink, 30)
+    }
+
+    pub fn start_with_fps(name: &str, sink: Arc<dyn MediaSink>, max_fps: u8) -> Result<Server, String> {
         Ok(Server {
-            engine: ffi::Engine::start(name, sink)?,
+            engine: ffi::Engine::start(name, sink, max_fps)?,
         })
     }
 
