@@ -6,6 +6,8 @@ Mirror your iPhone screen and audio to a Windows PC over Wi-Fi. A LonelyScreen-s
 - Single self-contained app. The protocol layer is UxPlay's library compiled in, output goes through GStreamer.
 - One-click "Add to OBS" button that creates window and audio capture sources for the mirror window.
 
+<img src="docs/ui-stopped.png" width="260"> <img src="docs/ui-running.png" width="260">
+
 ## Use
 
 1. Install and run Lovedscreen.
@@ -15,9 +17,11 @@ Mirror your iPhone screen and audio to a Windows PC over Wi-Fi. A LonelyScreen-s
 
 For OBS, enable the WebSocket server (Tools, WebSocket Server Settings), start mirroring, then use Use in OBS, Add to OBS.
 
+<img src="docs/ui-obs.png" width="260">
+
 ## Status
 
-Early. The Windows build and mirroring from a real iPhone are not yet confirmed working. Netflix and other DRM apps show black over AirPlay.
+Screenshots show the control panel only. Early. The Windows build and mirroring from a real iPhone are not yet confirmed working. Netflix and other DRM apps show black over AirPlay.
 
 ## Build
 
