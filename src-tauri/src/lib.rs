@@ -117,6 +117,11 @@ async fn start_receiver(
     if slot.is_some() {
         return Err("receiver already running".into());
     }
+    std::panic::set_hook(Box::new(|info| {
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(log_file_path()) {
+            let _ = writeln!(f, "PANIC: {info}");
+        }
+    }));
     point_gstreamer_at_bundle(&app);
     let inner = GstSink::new()?;
     inner.set_low_latency(low_latency);
