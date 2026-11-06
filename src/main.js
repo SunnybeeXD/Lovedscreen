@@ -37,6 +37,7 @@ $("toggle").addEventListener("click", async () => {
 listen("receiver-line", (e) => {
   const log = $("log");
   log.textContent += e.payload + "\n";
+  if (log.textContent.length > 60000) log.textContent = log.textContent.slice(-40000);
   log.scrollTop = log.scrollHeight;
 });
 
@@ -45,3 +46,15 @@ listen("receiver-connection", (e) => {
 });
 
 listen("receiver-exit", () => setRunning(false));
+
+$("copy").addEventListener("click", async () => {
+  const text = await invoke("read_log");
+  try {
+    await navigator.clipboard.writeText(text);
+    $("copy").textContent = "Copied";
+  } catch {
+    $("log").textContent = text;
+    $("copy").textContent = "Select the text below and copy it";
+  }
+  setTimeout(() => ($("copy").textContent = "Copy log"), 4000);
+});

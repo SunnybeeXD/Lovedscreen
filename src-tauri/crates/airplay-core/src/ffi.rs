@@ -117,6 +117,7 @@ extern "C" {
 }
 
 const LOGGER_INFO: c_int = 6;
+const LOGGER_DEBUG: c_int = 7;
 const RESET_TYPE_ON_VIDEO_PLAY: c_int = 4;
 const VIDEO_CODEC_H265: c_int = 2;
 
@@ -364,7 +365,7 @@ impl Engine {
                 return Err("raop_init failed".into());
             }
             raop_set_log_callback(e.raop, log_cb, e.ctx as Cls);
-            raop_set_log_level(e.raop, LOGGER_INFO);
+            raop_set_log_level(e.raop, LOGGER_DEBUG);
             if raop_init2(e.raop, 0, cmac.as_ptr(), ckey.as_ptr()) != 0 {
                 free(e.raop as *mut c_void);
                 e.raop = ptr::null_mut();

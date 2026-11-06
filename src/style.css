@@ -47,3 +47,4 @@ pre:empty::before { content: "Receiver output appears here"; opacity: .6; }
 .obs summary { cursor: pointer; color: var(--muted); }
 .obs > :not(summary) { display: block; width: 100%; margin-top: 8px; }
 .obs p { margin: 0; font-size: 12px; color: var(--muted); }
+button.ghost { font: inherit; font-size: 12px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 6px; cursor: pointer; }
