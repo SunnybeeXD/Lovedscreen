@@ -14,3 +14,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
+airplay-core = { path = "crates/airplay-core" }
+airplay-render = { path = "crates/airplay-render" }
+
+[workspace]
+members = [".", "crates/airplay-core", "crates/airplay-render"]
