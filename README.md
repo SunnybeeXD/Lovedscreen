@@ -21,7 +21,9 @@ For OBS, enable the WebSocket server (Tools, WebSocket Server Settings), start m
 
 ## Status
 
-Screenshots show the control panel only. Early. The Windows build and mirroring from a real iPhone are not yet confirmed working. Netflix and other DRM apps show black over AirPlay.
+Early. Mirroring from an iPhone to Windows works in testing. Screenshots show the control panel only. Audio sync, rotation and long sessions are not well tested. Netflix and other DRM apps show black over AirPlay.
+
+If the iPhone says "unable to connect", set your PC's network profile to Private (Windows treats some wired connections as Public and blocks the connection). Logs are in `%TEMP%\lovedscreen.log`, and the app has a Copy log button.
 
 ## Build
 

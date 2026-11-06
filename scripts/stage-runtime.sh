@@ -9,7 +9,7 @@ rm -rf "$out"
 mkdir -p "$out/gstreamer-1.0"
 
 required=(coreelements app audioconvert audioresample playback videoparsersbad videoconvertscale typefindfunctions d3d11 autodetect)
-optional=(directsound wasapi2 videoscale videoconvert d3d12 opengl)
+optional=(directsound wasapi2 videoscale videoconvert)
 
 for name in "${required[@]}"; do
   f="$prefix/lib/gstreamer-1.0/libgst${name}.dll"
