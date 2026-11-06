@@ -22,7 +22,7 @@ for name in "${optional[@]}"; do
 done
 
 seeds=()
-for pattern in libgstreamer-1.0 libgstbase-1.0 libgstapp-1.0 libgstvideo-1.0 libgstaudio-1.0 libplist-2.0 libssl libcrypto libwinpthread libgcc_s libstdc++; do
+for pattern in libgstreamer-1.0 libgstbase-1.0 libgstapp-1.0 libgstvideo-1.0 libgstaudio-1.0 libwinpthread libgcc_s libstdc++; do
   for f in "$prefix"/bin/${pattern}*.dll; do
     [ -f "$f" ] && seeds+=("$f")
   done
@@ -36,5 +36,11 @@ done | grep -i '\.dll$' | grep -vi '/lib/gstreamer-1.0/' | sort -u | while read 
   cp -n "$dll" "$out/"
 done
 
-ls "$out"/libgstreamer-1.0*.dll "$out"/libplist-2.0*.dll
+ls "$out"/libgstreamer-1.0*.dll
 ls "$out"/gstreamer-1.0
+
+echo "before strip: $(du -sk "$out" | cut -f1) KB"
+find "$out" -name '*.dll' -exec strip --strip-unneeded {} + || true
+echo "after strip: $(du -sk "$out" | cut -f1) KB"
+echo "largest files:"
+find "$out" -type f -printf '%s %P\n' | sort -rn | head -25
