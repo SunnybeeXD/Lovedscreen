@@ -88,7 +88,7 @@ impl MediaSink for UiSink {
 
 fn point_gstreamer_at_bundle(app: &AppHandle) {
     if std::env::var_os("GST_DEBUG").is_none() {
-        std::env::set_var("GST_DEBUG", "2,d3d11*:5,GST_ELEMENT_FACTORY:4,GST_PLUGIN_LOADING:4");
+        std::env::set_var("GST_DEBUG", "2");
     }
     std::env::set_var("GST_DEBUG_NO_COLOR", "1");
     std::env::set_var("GST_DEBUG_FILE", gst_log_path());
