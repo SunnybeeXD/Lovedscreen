@@ -90,7 +90,8 @@ fn mdns_ptr(name: &str, instance: &str) {
 fn serves_rtsp_and_mdns_and_restarts() {
     for round in 0..2 {
         let rec = Arc::new(Rec::default());
-        let server = Server::start("LovedscreenTest", rec.clone()).expect("start");
+        let fps: u8 = if round == 0 { 30 } else { 60 };
+        let server = Server::start_with_fps("LovedscreenTest", rec.clone(), fps).expect("start");
         let port = server.port();
         assert!(port > 0);
 
@@ -99,6 +100,10 @@ fn serves_rtsp_and_mdns_and_restarts() {
         assert!(text.starts_with("RTSP/1.0 200 OK"), "info: {text}");
         let body = info.windows(4).position(|w| w == b"\r\n\r\n").unwrap() + 4;
         assert!(info[body..].starts_with(b"bplist00"), "info body is not a plist");
+        let max_fps_marker: [u8; 2] = [0x10, fps];
+        let other_marker: [u8; 2] = [0x10, if fps == 30 { 60 } else { 30 }];
+        assert!(contains(&info[body..], &max_fps_marker), "maxFPS {fps} not advertised");
+        assert!(!contains(&info[body..], &other_marker), "unexpected other fps value in info");
         println!("round {round}: GET /info -> {} bytes, bplist body {}", info.len(), info.len() - body);
 
         let opt = rtsp(port, "OPTIONS * RTSP/1.0\r\nCSeq: 2\r\n\r\n");
