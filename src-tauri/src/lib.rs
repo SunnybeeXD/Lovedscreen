@@ -111,6 +111,7 @@ async fn start_receiver(
     state: State<'_, Receiver>,
     name: String,
     fps: u8,
+    low_latency: bool,
 ) -> Result<(), String> {
     let mut slot = state.0.lock().map_err(|e| e.to_string())?;
     if slot.is_some() {
@@ -118,6 +119,7 @@ async fn start_receiver(
     }
     point_gstreamer_at_bundle(&app);
     let inner = GstSink::new()?;
+    inner.set_low_latency(low_latency);
     let sink = Arc::new(UiSink::new(app.clone(), inner));
     let weak = Arc::downgrade(&sink);
     let weak_logger = weak.clone();
