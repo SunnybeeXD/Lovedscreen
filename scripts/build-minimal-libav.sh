@@ -36,7 +36,7 @@ make -j"$jobs"
 make install
 
 cd ../gst-libav
-PKG_CONFIG_PATH="$ffmpeg_prefix/lib/pkgconfig" PKG_CONFIG_LIBDIR="$ffmpeg_prefix/lib/pkgconfig:${PKG_CONFIG_LIBDIR:-}" \
+PKG_CONFIG_PATH="$ffmpeg_prefix/lib/pkgconfig" \
   meson setup build --prefix="$plugin_prefix" --libdir=lib -Dtests=disabled -Ddoc=disabled
 meson compile -C build
 meson install -C build
