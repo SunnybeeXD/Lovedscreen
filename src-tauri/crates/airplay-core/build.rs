@@ -95,6 +95,7 @@ fn main() {
         .define("OPENSSL_API_COMPAT", "0x10101000L");
     if windows {
         b.define("_WIN32", None);
+        b.define("LIBPLIST_STATIC", None);
     } else {
         b.define("_LINUX", None);
     }
