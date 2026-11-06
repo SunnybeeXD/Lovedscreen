@@ -56,6 +56,7 @@ impl MediaSink for UiSink {
     fn video_codec(&self, width: u16, height: u16, h265: bool) {
         self.note(&format!("video codec {width}x{height} h265={h265}"));
         self.inner.video_codec(width, height, h265);
+        self.note("video codec handled");
     }
     fn video(&self, annexb: &[u8], pts_ns: u64) {
         let n = self.video_frames.fetch_add(1, Ordering::Relaxed) + 1;
@@ -115,6 +116,18 @@ async fn start_receiver(
     point_gstreamer_at_bundle(&app);
     let inner = GstSink::new()?;
     let sink = Arc::new(UiSink::new(app.clone(), inner));
+    let weak = Arc::downgrade(&sink);
+    let weak_logger = weak.clone();
+    sink.inner.set_logger(Arc::new(move |m: &str| {
+        if let Some(s) = weak_logger.upgrade() {
+            s.note(m);
+        }
+    }));
+    std::panic::set_hook(Box::new(move |info| {
+        if let Some(s) = weak.upgrade() {
+            s.note(&format!("PANIC: {info}"));
+        }
+    }));
     sink.note(&format!("starting receiver name={name:?}, log file {}", log_file_path().display()));
     let server = Server::start(&name, sink.clone())?;
     sink.note(&format!("listening on port {}", server.port()));

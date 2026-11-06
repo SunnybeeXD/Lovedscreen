@@ -3,7 +3,7 @@ use gstreamer as gst;
 use gstreamer::prelude::*;
 use gstreamer_app as gst_app;
 use std::str::FromStr;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 const LATENCY_NS: u64 = 250_000_000;
 
@@ -51,19 +51,28 @@ impl Inner {
     }
 }
 
+type Logger = Arc<dyn Fn(&str) + Send + Sync>;
+
 pub struct GstSink {
     video_sink: String,
     audio_sink: String,
+    software: bool,
     clock: gst::Clock,
+    logger: Mutex<Option<Logger>>,
     inner: Mutex<Inner>,
 }
 
-fn default_video_sink() -> &'static str {
-    if cfg!(windows) {
-        "d3d11videosink"
-    } else {
-        "autovideosink"
+fn software_mode() -> bool {
+    std::env::var("LOVEDSCREEN_SOFTWARE").map(|v| v == "1").unwrap_or(false)
+}
+
+fn default_video_sink() -> String {
+    if let Ok(v) = std::env::var("LOVEDSCREEN_VIDEO_SINK") {
+        if !v.is_empty() {
+            return v;
+        }
     }
+    if cfg!(windows) { "d3d11videosink" } else { "autovideosink" }.to_string()
 }
 
 fn prefer_hardware_decoders() {
@@ -95,18 +104,56 @@ fn is_fullscreen_key(s: &gst::StructureRef) -> bool {
 
 impl GstSink {
     pub fn new() -> Result<GstSink, String> {
-        GstSink::with_sinks(default_video_sink(), "autoaudiosink")
+        GstSink::with_sinks(&default_video_sink(), "autoaudiosink")
     }
 
     pub fn with_sinks(video: &str, audio: &str) -> Result<GstSink, String> {
         gst::init().map_err(|e| e.to_string())?;
-        prefer_hardware_decoders();
+        let software = software_mode();
+        if !software {
+            prefer_hardware_decoders();
+        }
         Ok(GstSink {
             video_sink: video.to_string(),
             audio_sink: audio.to_string(),
+            software,
             clock: gst::SystemClock::obtain(),
+            logger: Mutex::new(None),
             inner: Mutex::new(Inner { video: None, h265: false, audio: None, base: None, offset: None }),
         })
+    }
+
+    pub fn set_logger(&self, f: Arc<dyn Fn(&str) + Send + Sync>) {
+        *self.logger.lock().unwrap_or_else(|e| e.into_inner()) = Some(f);
+    }
+
+    fn note(&self, msg: &str) {
+        let logger = self.logger.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        match logger {
+            Some(f) => f(msg),
+            None => eprintln!("airplay-render: {msg}"),
+        }
+    }
+
+    fn watch_bus(&self, pipeline: &gst::Pipeline, tag: &'static str) {
+        let Some(bus) = pipeline.bus() else { return };
+        let weak = pipeline.downgrade();
+        let logger = self.logger.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        std::thread::spawn(move || {
+            while weak.upgrade().is_some() {
+                let msg = bus.timed_pop_filtered(
+                    gst::ClockTime::from_mseconds(250),
+                    &[gst::MessageType::Error, gst::MessageType::Warning],
+                );
+                if let (Some(m), Some(f)) = (msg, logger.as_ref()) {
+                    match m.view() {
+                        gst::MessageView::Error(e) => f(&format!("{tag} ERROR: {} ({:?})", e.error(), e.debug())),
+                        gst::MessageView::Warning(w) => f(&format!("{tag} warning: {} ({:?})", w.error(), w.debug())),
+                        _ => {}
+                    }
+                }
+            }
+        });
     }
 
     #[doc(hidden)]
@@ -130,16 +177,21 @@ impl GstSink {
         gst::ClockTime::from_nseconds(pts_ns.wrapping_add(offset))
     }
 
-    fn start(&self, g: &mut Inner, head: &str, caps: &str, sink: &str, navigation: bool) -> Result<Pipe, String> {
+    fn start(&self, g: &mut Inner, head: &str, caps: &str, sink: &str, navigation: bool, tag: &'static str) -> Result<Pipe, String> {
         let base = self.base(g);
+        self.note(&format!("{tag}: building pipeline: appsrc ! {head} ! {sink}"));
         let pipeline = gst::parse::launch(&format!("appsrc name=src ! {head}"))
             .map_err(|e| e.to_string())?
             .downcast::<gst::Pipeline>()
             .map_err(|_| "not a pipeline".to_string())?;
+        self.note(&format!("{tag}: head created"));
         let tail = pipeline.by_name("tail").ok_or("missing tail")?;
         let bin = gst::parse::bin_from_description(sink, true).map_err(|e| e.to_string())?;
+        self.note(&format!("{tag}: sink created"));
         pipeline.add(&bin).map_err(|e| e.to_string())?;
         tail.link(&bin).map_err(|e| e.to_string())?;
+        self.note(&format!("{tag}: linked"));
+        self.watch_bus(&pipeline, tag);
         if let Some(el) = find_fullscreen_element(&bin) {
             if el.find_property("fullscreen-toggle-mode").is_some() {
                 el.set_property_from_str("fullscreen-toggle-mode", "alt-enter");
@@ -171,7 +223,9 @@ impl GstSink {
         pipeline.use_clock(Some(&self.clock));
         pipeline.set_start_time(gst::ClockTime::NONE);
         pipeline.set_base_time(base);
+        self.note(&format!("{tag}: setting state to playing"));
         pipeline.set_state(gst::State::Playing).map_err(|e| e.to_string())?;
+        self.note(&format!("{tag}: playing"));
         Ok(Pipe { pipeline, src })
     }
 
@@ -179,7 +233,7 @@ impl GstSink {
         if let Some(p) = g.video.take() {
             p.stop();
         }
-        let convert = if self.video_sink.starts_with("d3d11") { "d3d11convert" } else { "videoconvert" };
+        let convert = if self.video_sink.starts_with("d3d11") && !self.software { "d3d11convert" } else { "videoconvert" };
         let (parse, caps) = if g.h265 {
             ("h265parse", "video/x-h265,stream-format=byte-stream,alignment=au")
         } else {
@@ -187,7 +241,7 @@ impl GstSink {
         };
         let head = format!("{parse} ! decodebin ! {convert} name=tail");
         let head = head.as_str();
-        g.video = Some(self.start(g, head, caps, &self.video_sink, true)?);
+        g.video = Some(self.start(g, head, caps, &self.video_sink, true, "video")?);
         Ok(())
     }
 
@@ -201,7 +255,7 @@ impl GstSink {
             AudioCodec::Aac => ("avdec_aac", AAC_LC_CAPS),
         };
         let head = format!("queue ! {dec} ! audioconvert ! audioresample quality=10 name=tail");
-        g.audio = Some((codec, self.start(g, &head, caps, &self.audio_sink, false)?));
+        g.audio = Some((codec, self.start(g, &head, caps, &self.audio_sink, false, "audio")?));
         Ok(())
     }
 
@@ -217,7 +271,7 @@ impl MediaSink for GstSink {
         let mut g = self.lock();
         g.h265 = h265;
         if let Err(e) = self.start_video(&mut g) {
-            self.log(1, &format!("video pipeline: {e}"));
+            self.note(&format!("video pipeline failed: {e}"));
         }
     }
 
@@ -225,7 +279,7 @@ impl MediaSink for GstSink {
         let mut g = self.lock();
         if g.video.is_none() {
             if let Err(e) = self.start_video(&mut g) {
-                self.log(1, &format!("video pipeline: {e}"));
+                self.note(&format!("video pipeline failed: {e}"));
                 return;
             }
         }
@@ -242,7 +296,7 @@ impl MediaSink for GstSink {
         let mut g = self.lock();
         if g.audio.as_ref().map(|(c, _)| *c) != Some(codec) {
             if let Err(e) = self.start_audio(&mut g, codec) {
-                self.log(1, &format!("audio pipeline: {e}"));
+                self.note(&format!("audio pipeline failed: {e}"));
                 return;
             }
         }
