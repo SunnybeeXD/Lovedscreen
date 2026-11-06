@@ -17,6 +17,7 @@ function setRunning(value) {
   setState(running ? "Running" : "Stopped", running ? "running" : "");
   $("name").disabled = running;
   $("fps").disabled = running;
+  $("latency").disabled = running;
 }
 
 $("toggle").addEventListener("click", async () => {
@@ -26,7 +27,7 @@ $("toggle").addEventListener("click", async () => {
       setState("Stopping", "");
       await invoke("stop_receiver");
     } else {
-      await invoke("start_receiver", { name: $("name").value, fps: Number($("fps").value) });
+      await invoke("start_receiver", { name: $("name").value, fps: Number($("fps").value), lowLatency: $("latency").value === "low" });
       setRunning(true);
     }
   } catch (e) {

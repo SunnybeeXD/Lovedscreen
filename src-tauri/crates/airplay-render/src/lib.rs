@@ -3,9 +3,11 @@ use gstreamer as gst;
 use gstreamer::prelude::*;
 use gstreamer_app as gst_app;
 use std::str::FromStr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 const LATENCY_NS: u64 = 250_000_000;
+const LOW_LATENCY_NS: u64 = 40_000_000;
 
 const ALAC_CAPS: &str = concat!(
     "audio/x-alac,mpegversion=(int)4,channels=(int)2,rate=(int)44100,stream-format=raw,codec_data=(buffer)",
@@ -57,9 +59,23 @@ pub struct GstSink {
     video_sink: String,
     audio_sink: String,
     software: bool,
+    low_latency: AtomicBool,
     clock: gst::Clock,
     logger: Mutex<Option<Logger>>,
     inner: Mutex<Inner>,
+}
+
+fn default_audio_sink() -> String {
+    if let Ok(v) = std::env::var("LOVEDSCREEN_AUDIO_SINK") {
+        if !v.is_empty() {
+            return v;
+        }
+    }
+    if cfg!(windows) && gst::ElementFactory::find("wasapi2sink").is_some() {
+        "wasapi2sink".to_string()
+    } else {
+        "autoaudiosink".to_string()
+    }
 }
 
 fn software_mode() -> bool {
@@ -104,7 +120,7 @@ fn is_fullscreen_key(s: &gst::StructureRef) -> bool {
 
 impl GstSink {
     pub fn new() -> Result<GstSink, String> {
-        GstSink::with_sinks(&default_video_sink(), "autoaudiosink")
+        GstSink::with_sinks(&default_video_sink(), &default_audio_sink())
     }
 
     pub fn with_sinks(video: &str, audio: &str) -> Result<GstSink, String> {
@@ -117,10 +133,19 @@ impl GstSink {
             video_sink: video.to_string(),
             audio_sink: audio.to_string(),
             software,
+            low_latency: AtomicBool::new(true),
             clock: gst::SystemClock::obtain(),
             logger: Mutex::new(None),
             inner: Mutex::new(Inner { video: None, h265: false, audio: None, base: None, offset: None }),
         })
+    }
+
+    pub fn set_low_latency(&self, on: bool) {
+        self.low_latency.store(on, Ordering::Relaxed);
+    }
+
+    fn low(&self) -> bool {
+        self.low_latency.load(Ordering::Relaxed)
     }
 
     pub fn set_logger(&self, f: Arc<dyn Fn(&str) + Send + Sync>) {
@@ -173,7 +198,8 @@ impl GstSink {
     fn timestamp(&self, g: &mut Inner, pts_ns: u64) -> gst::ClockTime {
         let base = self.base(g);
         let now = self.clock.time().unwrap_or(base).nseconds().saturating_sub(base.nseconds());
-        let offset = *g.offset.get_or_insert_with(|| (now + LATENCY_NS).wrapping_sub(pts_ns));
+        let latency = if self.low() { LOW_LATENCY_NS } else { LATENCY_NS };
+        let offset = *g.offset.get_or_insert_with(|| (now + latency).wrapping_sub(pts_ns));
         gst::ClockTime::from_nseconds(pts_ns.wrapping_add(offset))
     }
 
@@ -191,6 +217,23 @@ impl GstSink {
         pipeline.add(&bin).map_err(|e| e.to_string())?;
         tail.link(&bin).map_err(|e| e.to_string())?;
         self.note(&format!("{tag}: linked"));
+        if self.low() && tag == "video" {
+            for el in bin.iterate_recurse().into_iter().flatten() {
+                if el.find_property("sync").is_some() {
+                    el.set_property("sync", false);
+                }
+            }
+            if let Some(dec) = pipeline.by_name("dec") {
+                dec.connect("deep-element-added", false, |args| {
+                    if let Ok(el) = args[2].get::<gst::Element>() {
+                        if el.find_property("max-threads").is_some() {
+                            el.set_property_from_str("max-threads", "1");
+                        }
+                    }
+                    None
+                });
+            }
+        }
         self.watch_bus(&pipeline, tag);
         if let Some(el) = find_fullscreen_element(&bin) {
             if el.find_property("fullscreen-toggle-mode").is_some() {
@@ -239,7 +282,7 @@ impl GstSink {
         } else {
             ("h264parse", "video/x-h264,stream-format=byte-stream,alignment=au")
         };
-        let head = format!("{parse} ! decodebin ! {convert} name=tail");
+        let head = format!("{parse} ! decodebin name=dec ! {convert} name=tail");
         let head = head.as_str();
         g.video = Some(self.start(g, head, caps, &self.video_sink, true, "video")?);
         Ok(())
@@ -255,7 +298,12 @@ impl GstSink {
             AudioCodec::Aac => ("avdec_aac", AAC_LC_CAPS),
         };
         let head = format!("queue ! {dec} ! audioconvert ! audioresample quality=10 name=tail");
-        g.audio = Some((codec, self.start(g, &head, caps, &self.audio_sink, false, "audio")?));
+        let sink = if self.low() && self.audio_sink == "wasapi2sink" {
+            "wasapi2sink low-latency=true".to_string()
+        } else {
+            self.audio_sink.clone()
+        };
+        g.audio = Some((codec, self.start(g, &head, caps, &sink, false, "audio")?));
         Ok(())
     }
 
@@ -334,5 +382,27 @@ impl MediaSink for GstSink {
 impl Drop for GstSink {
     fn drop(&mut self) {
         self.lock().reset();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fresh() -> Inner {
+        Inner { video: None, h265: false, audio: None, base: None, offset: None }
+    }
+
+    #[test]
+    fn low_latency_schedules_frames_sooner() {
+        let sink = GstSink::with_sinks("fakesink", "fakesink").unwrap();
+        let pts = 5_000_000_000u64;
+        sink.set_low_latency(true);
+        let low = sink.timestamp(&mut fresh(), pts).nseconds();
+        sink.set_low_latency(false);
+        let smooth = sink.timestamp(&mut fresh(), pts).nseconds();
+        assert!(low < 100_000_000, "low latency first frame at {low} ns");
+        assert!(smooth >= 250_000_000, "smooth first frame at {smooth} ns");
+        assert!(smooth - low >= 150_000_000);
     }
 }

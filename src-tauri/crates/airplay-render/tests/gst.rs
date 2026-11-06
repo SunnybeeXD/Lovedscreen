@@ -185,3 +185,36 @@ fn drop_does_not_hang() {
     });
     rx.recv_timeout(Duration::from_secs(10)).unwrap();
 }
+
+fn mean_delay_ms(low: bool) -> f64 {
+    let frames = h264();
+    let s = GstSink::with_sinks("fakesink name=vs sync=true", "fakesink name=as").unwrap();
+    s.set_low_latency(low);
+    s.video_codec(320, 240, false);
+    let arrivals: Arc<std::sync::Mutex<Vec<Instant>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let a = arrivals.clone();
+    let pad = s.pipelines().0.unwrap().by_name("vs").unwrap().static_pad("sink").unwrap();
+    pad.add_probe(gst::PadProbeType::BUFFER, move |_, _| {
+        a.lock().unwrap().push(Instant::now());
+        gst::PadProbeReturn::Ok
+    });
+    let mut pushed = Vec::new();
+    for (data, i) in &frames {
+        pushed.push(Instant::now());
+        s.video(data, 1_000_000_000_000 + i * 33_000_000);
+        std::thread::sleep(Duration::from_millis(33));
+    }
+    std::thread::sleep(Duration::from_millis(600));
+    let got = arrivals.lock().unwrap().clone();
+    assert!(got.len() >= 20, "only {} frames arrived", got.len());
+    let delays: Vec<f64> = (5..20).map(|i| got[i].duration_since(pushed[i]).as_secs_f64() * 1000.0).collect();
+    delays.iter().sum::<f64>() / delays.len() as f64
+}
+
+#[test]
+fn low_latency_mode_shows_frames_sooner() {
+    let low = mean_delay_ms(true);
+    let smooth = mean_delay_ms(false);
+    println!("mean push-to-display delay: low {low:.0} ms, smooth {smooth:.0} ms");
+    assert!(smooth - low > 100.0, "low {low} ms, smooth {smooth} ms");
+}
