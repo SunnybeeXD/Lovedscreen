@@ -44,6 +44,8 @@ jobs:
           export FFMPEG_VERSION
           scripts/build-minimal-libav.sh
       - run: scripts/stage-runtime.sh
+      - name: Startup smoke test
+        run: cd src-tauri && cargo test -p airplay-render --test new_default
       - run: npm ci
       - run: npx tauri build
       - run: |

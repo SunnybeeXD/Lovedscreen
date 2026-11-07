@@ -71,7 +71,8 @@ fn default_audio_sink() -> String {
             return v;
         }
     }
-    if cfg!(windows) && gst::ElementFactory::find("wasapi2sink").is_some() {
+    let has_wasapi = gst::init().is_ok() && gst::ElementFactory::find("wasapi2sink").is_some();
+    if cfg!(windows) && has_wasapi {
         "wasapi2sink".to_string()
     } else {
         "autoaudiosink".to_string()
@@ -120,6 +121,7 @@ fn is_fullscreen_key(s: &gst::StructureRef) -> bool {
 
 impl GstSink {
     pub fn new() -> Result<GstSink, String> {
+        gst::init().map_err(|e| e.to_string())?;
         GstSink::with_sinks(&default_video_sink(), &default_audio_sink())
     }
 
